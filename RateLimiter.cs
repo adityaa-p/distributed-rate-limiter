@@ -1,17 +1,19 @@
+using DistributedRateLimiter.Configuration;
+using Microsoft.Extensions.Options;
 using StackExchange.Redis;
 
 namespace DistributedRateLimiter;
 
-public class RateLimiter(IConnectionMultiplexer redis)
+public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptions> rateLimiterOptions)
 {
     private readonly IDatabase _database = redis.GetDatabase();
 
-    public async Task<(bool allowed, double remaining, int retryAfterSec)> AllowRequestAsync(string key, double burstCapacity, double refillPerSecond, int tokenRequested = 1)
+    public async Task<(bool allowed, double remaining, int retryAfterSec)> AllowRequestAsync(string key)
     {
         var bucket = await _database.HashGetAsync(key, ["token", "lastRefill"]);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-        var tokens = burstCapacity;
+        var tokens = rateLimiterOptions.Value.BurstCapacity;
         var lastRefill = now;
 
         if (!bucket[0].IsNull && !bucket[1].IsNull)
@@ -21,7 +23,7 @@ public class RateLimiter(IConnectionMultiplexer redis)
         }
         
         var delta = Math.Max(0, now - lastRefill);
-        tokens = Math.Min(burstCapacity, tokens + delta * refillPerSecond);
+        tokens = Math.Min(rateLimiterOptions.Value.BurstCapacity, tokens + delta * rateLimiterOptions.Value.RefillPerSecond);
 
         if (tokens >= 1)
         {
@@ -30,12 +32,12 @@ public class RateLimiter(IConnectionMultiplexer redis)
                 new HashEntry("tokens", tokens),
                 new HashEntry("lastRefill", now)
             ]);
-            await _database.KeyExpireAsync(key, TimeSpan.FromSeconds(burstCapacity / refillPerSecond));
+            await _database.KeyExpireAsync(key, TimeSpan.FromSeconds(rateLimiterOptions.Value.BurstCapacity / rateLimiterOptions.Value.RefillPerSecond));
             return (true, tokens, 0);
         }
         else
         {
-            var retryAfter = (int)Math.Ceiling((1 - tokens) / refillPerSecond);
+            var retryAfter = (int)Math.Ceiling((1 - tokens) / rateLimiterOptions.Value.RefillPerSecond);
             return (false, tokens, retryAfter);
         }
     }
