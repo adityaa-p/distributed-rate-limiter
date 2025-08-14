@@ -1,4 +1,5 @@
 using DistributedRateLimiter;
+using DistributedRateLimiter.Configuration;
 using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -8,6 +9,10 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 );
 builder.Services.AddSingleton<RateLimiter>();
 builder.Services.AddControllers();
+builder.Services
+        .Configure<RateLimiterOptions>(builder
+                                        .Configuration
+                                        .GetSection(nameof(RateLimiterOptions)));
 
 var app = builder.Build();
 
@@ -18,10 +23,9 @@ app.Use(async (context, next) =>
     var ip = context.Connection.RemoteIpAddress?.ToString();
     var key = $"rate:{ip}";
     
-    int maxTokens = 5;            // burst capacity
-    double refillPerSecond = 1.0; // tokens per second
+    const int maxTokens = 5;
 
-    var (allowed, remaining, retryAfterSec) = await limiter.AllowRequestAsync(key, maxTokens, refillPerSecond);
+    var (allowed, remaining, retryAfterSec) = await limiter.AllowRequestAsync(key);
 
     context.Response.Headers["X-RateLimit-Limit"] = maxTokens.ToString();
     context.Response.Headers["X-RateLimit-Remaining"] = remaining.ToString();
