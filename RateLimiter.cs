@@ -2,19 +2,14 @@ using StackExchange.Redis;
 
 namespace DistributedRateLimiter;
 
-public class RateLimiter
+public class RateLimiter(IConnectionMultiplexer redis)
 {
-    private readonly IDatabase _database;
+    private readonly IDatabase _database = redis.GetDatabase();
 
-    public RateLimiter(IConnectionMultiplexer redis)
-    {
-        _database = redis.GetDatabase();
-    }
-    
     public async Task<(bool allowed, double remaining, int retryAfterSec)> AllowRequestAsync(string key, double burstCapacity, double refillPerSecond, int tokenRequested = 1)
     {
         var bucket = await _database.HashGetAsync(key, ["token", "lastRefill"]);
-        long now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+        var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var tokens = burstCapacity;
         var lastRefill = now;
