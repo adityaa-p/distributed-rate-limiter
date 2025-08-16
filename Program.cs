@@ -31,7 +31,7 @@ app.Use(async (context, next) =>
     context.Response.Headers["X-RateLimit-Remaining"] = remaining.ToString();
     context.Response.Headers["X-RateLimit-RetryAfter"] = retryAfterSec.ToString();
 
-    if ((bool)allowed)
+    if (!(bool)allowed)
     {
         context.Response.StatusCode = StatusCodes.Status429TooManyRequests;
         await context.Response.WriteAsync($"Rate limit exceeded. Retry after {retryAfterSec} seconds.\n");
@@ -40,5 +40,7 @@ app.Use(async (context, next) =>
 
     await next();
 });
+
+app.MapGet("/api/data", () => Results.Ok(new { message = "Hello — your request was allowed." }));
 
 app.Run();
