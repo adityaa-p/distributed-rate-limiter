@@ -10,7 +10,7 @@ public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptio
 
     public async Task<(bool allowed, double remaining, int retryAfterSec)> AllowRequestAsync(string key)
     {
-        var bucket = await _database.HashGetAsync(key, ["token", "lastRefill"]);
+        var bucket = await _database.HashGetAsync(key, ["tokens", "lastRefill"]);
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var tokens = rateLimiterOptions.Value.BurstCapacity;
@@ -32,7 +32,6 @@ public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptio
                 new HashEntry("tokens", tokens),
                 new HashEntry("lastRefill", now)
             ]);
-            await _database.KeyExpireAsync(key, TimeSpan.FromSeconds(rateLimiterOptions.Value.BurstCapacity / rateLimiterOptions.Value.RefillPerSecond));
             return (true, tokens, 0);
         }
         else
