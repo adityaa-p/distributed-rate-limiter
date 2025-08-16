@@ -1,9 +1,11 @@
-﻿services:
+services:
   distributedratelimiter:
     image: distributedratelimiter
     build:
       context: .
       dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
       
   redis:
     image: redis
