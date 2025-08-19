@@ -4,13 +4,16 @@ using StackExchange.Redis;
 
 namespace DistributedRateLimiter;
 
-public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptions> rateLimiterOptions)
+public class RateLimiter(IConnectionMultiplexer redis, 
+    IOptions<RateLimiterOptions> rateLimiterOptions,
+    ILogger<RateLimiter> logger)
 {
     private readonly IDatabase _database = redis.GetDatabase();
 
     public async Task<(bool allowed, double remaining, int retryAfterSec)> AllowRequestAsync(string key)
     {
         var bucket = await _database.HashGetAsync(key, ["tokens", "lastRefill"]);
+        
         var now = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
         var tokens = rateLimiterOptions.Value.BurstCapacity;
@@ -27,6 +30,7 @@ public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptio
 
         if (tokens >= 1)
         {
+            logger.LogInformation("Tokens reached: {0}", tokens);
             tokens -= 1;
             await _database.HashSetAsync(key, [
                 new HashEntry("tokens", tokens),
@@ -34,10 +38,9 @@ public class RateLimiter(IConnectionMultiplexer redis, IOptions<RateLimiterOptio
             ]);
             return (true, tokens, 0);
         }
-        else
-        {
-            var retryAfter = (int)Math.Ceiling((1 - tokens) / rateLimiterOptions.Value.RefillPerSecond);
-            return (false, tokens, retryAfter);
-        }
+
+        logger.LogWarning("Tokens out of range");
+        var retryAfter = (int)Math.Ceiling((1 - tokens) / rateLimiterOptions.Value.RefillPerSecond);
+        return (false, tokens, retryAfter);
     }
 }

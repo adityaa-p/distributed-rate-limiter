@@ -9,6 +9,7 @@ builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
 );
 builder.Services.AddSingleton<RateLimiter>();
 builder.Services.AddControllers();
+builder.Services.AddLogging();
 builder.Services
         .Configure<RateLimiterOptions>(builder
                                         .Configuration
