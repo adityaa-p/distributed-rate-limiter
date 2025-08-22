@@ -1,4 +1,5 @@
 ﻿using DistributedRateLimiter.Configuration;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using StackExchange.Redis;
@@ -73,6 +74,7 @@ public class RateLimiterTests
     private static RateLimiter CreateLimiter(IDatabase db)
     {
         var muxerMock = new Mock<IConnectionMultiplexer>();
+        var loggerMock = new Mock<ILogger<RateLimiter>>();
         
         var rateLimiterOptions = new RateLimiterOptions { BurstCapacity = 5, RefillPerSecond = 1};
         var options = Options.Create(rateLimiterOptions);
@@ -81,6 +83,6 @@ public class RateLimiterTests
             .Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>()))
             .Returns(db);
 
-        return new RateLimiter(muxerMock.Object, options);
+        return new RateLimiter(muxerMock.Object, options, loggerMock.Object);
     }
 }
