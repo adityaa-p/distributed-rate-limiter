@@ -21,9 +21,19 @@ app.Use(async (context, next) =>
 {
     var limiter = context.RequestServices.GetRequiredService<RateLimiter>();
     
-    var ip = context.Connection.RemoteIpAddress?.ToString();
-    var key = $"rate:{ip}";
+    // var ip = context.Connection.RemoteIpAddress?.ToString();
+    // // var key = $"rate:{ip}";
+    //
+    // var random = new Random();
+    // var key = Convert.ToString(random.Next(1, 200000));
+    // Console.WriteLine($"Key: {key}");
     
+    var key = context.Request.Query["user"];
+    if (string.IsNullOrEmpty(key))
+    {
+        key = context.Connection.RemoteIpAddress?.ToString() ?? "anon";
+    }
+    Console.WriteLine($"Key: {key}");
     const int maxTokens = 5;
 
     var (allowed, remaining, retryAfterSec) = await limiter.AllowRequestAsync(key);
