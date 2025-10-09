@@ -5,9 +5,15 @@ using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
-    ConnectionMultiplexer.Connect(builder.Configuration.GetValue<string>("REDIS") ?? "redis:6379")
+    {
+        var configuration = ConfigurationOptions.Parse(builder.Configuration.GetValue<string>("REDIS") ?? "redis:6379");
+        configuration.AbortOnConnectFail = false;
+        configuration.ConnectTimeout = 5000;
+        configuration.SyncTimeout = 5000;
+        return ConnectionMultiplexer.Connect(configuration);
+    }
 );
-builder.Services.AddSingleton<RateLimiter>();
+builder.Services.AddSingleton<RedisRateLimiter>();
 builder.Services.AddControllers();
 builder.Services.AddLogging();
 builder.Services
@@ -19,11 +25,12 @@ var app = builder.Build();
 
 app.Use(async (context, next) =>
 {
-    var limiter = context.RequestServices.GetRequiredService<RateLimiter>();
+    var limiter = context.RequestServices.GetRequiredService<RedisRateLimiter>();
     
     // var ip = context.Connection.RemoteIpAddress?.ToString();
     // // var key = $"rate:{ip}";
     //
+    
     // var random = new Random();
     // var key = Convert.ToString(random.Next(1, 200000));
     // Console.WriteLine($"Key: {key}");
@@ -33,7 +40,7 @@ app.Use(async (context, next) =>
     {
         key = context.Connection.RemoteIpAddress?.ToString() ?? "anon";
     }
-    Console.WriteLine($"Key: {key}");
+
     const int maxTokens = 5;
 
     var (allowed, remaining, retryAfterSec) = await limiter.AllowRequestAsync(key);

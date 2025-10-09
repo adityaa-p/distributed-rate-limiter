@@ -21,12 +21,12 @@ public class RateLimiter(IConnectionMultiplexer redis,
 
         if (!bucket[0].IsNull && !bucket[1].IsNull)
         {
-            tokens = (double)bucket[0];
+            tokens = (int)bucket[0];
             lastRefill = (long)bucket[1];
         }
         
         var delta = Math.Max(0, now - lastRefill);
-        tokens = Math.Min(rateLimiterOptions.Value.BurstCapacity, tokens + delta * rateLimiterOptions.Value.RefillPerSecond);
+        tokens = (int)Math.Min(rateLimiterOptions.Value.BurstCapacity, tokens + delta * rateLimiterOptions.Value.RefillPerSecond);
 
         if (tokens >= 1)
         {
@@ -40,7 +40,7 @@ public class RateLimiter(IConnectionMultiplexer redis,
         }
 
         logger.LogWarning("Tokens out of range");
-        var retryAfter = (int)Math.Ceiling((1 - tokens) / rateLimiterOptions.Value.RefillPerSecond);
+        var retryAfter = (int)Math.Ceiling((double)(1 - tokens) / rateLimiterOptions.Value.RefillPerSecond);
         return (false, tokens, retryAfter);
     }
 }

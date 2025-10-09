@@ -18,4 +18,10 @@
       </Content>
     </ItemGroup>
 
+    <ItemGroup>
+      <None Update="token_bucket.lua">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
 </Project>
